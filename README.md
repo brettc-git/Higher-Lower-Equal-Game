@@ -8,6 +8,7 @@ Group Members
 ## Assets Used
 - Pydealer library
 - Pygame
+- https://totalnonsense.com/download/vector-play-card-download/ TotalNonsense's SVG cards
 
 
 ## Rules of the Game
