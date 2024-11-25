@@ -1,4 +1,4 @@
-# 481-Capstone-Project-Higher-Lower-Equal-Game-
+# Higher-Lower-Equal Game
 
 Group Members
 - Brett Chiu
