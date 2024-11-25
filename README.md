@@ -7,6 +7,7 @@ Group Members
   
 ## Assets Used
 - Pydealer library
+- Pygame
 
 
 ## Rules of the Game
