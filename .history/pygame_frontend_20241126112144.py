@@ -9,12 +9,7 @@ screen = pygame.display.set_mode((1280, 720))
 clock = pygame.time.Clock()
 running = True
 
-system = pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_NO)
-
-directory = "assets/Card SVG files/"
-
-# Load card svg's from directory
-
+directory = "/assets/Card SVG files/"
 
 wood_bg = pygame.image.load("assets/wood_bg.jpeg")
 
@@ -27,5 +22,6 @@ while running:
     ### Create a card interface
     ### SET wood_bg as background
 
+    screen.blit(wood_bg, (0, 0))
     clock.tick(60)
 pygame.quit()

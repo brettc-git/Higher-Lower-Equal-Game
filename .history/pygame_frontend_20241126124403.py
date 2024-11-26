@@ -14,6 +14,11 @@ system = pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_NO)
 directory = "assets/Card SVG files/"
 
 # Load card svg's from directory
+for card in directory:
+    try:
+
+    # In the case that cards are missing
+    except FileNotFoundError:
 
 
 wood_bg = pygame.image.load("assets/wood_bg.jpeg")
