@@ -103,6 +103,7 @@ class Expectimax(GameEngine):
 
     def __init__(self):
         super().__init__()
+        self.expected_value = 0
 
     # Looks at the utility of every card left in the stack and offers which of player's card to choose AND what choice they should make.
     def expectimax(self, hand, deck):
@@ -154,11 +155,11 @@ class Expectimax(GameEngine):
                             else -20
                         )  # 20 total points will be added if the card is equal to current card in hand, the same amount is deducted otherwise
 
-                    expected_value = probability * utility  # Expected value will
+                    self.expected_value = probability * utility  # Expected value will
 
             # Check if new expected value is better than the current best expected value
-            if expected_value > maxEV:
-                maxEV = expected_value
+            if self.expected_value > maxEV:
+                maxEV = self.expected_value
                 best_move = (card, guess)
 
         return maxEV, best_move
@@ -177,6 +178,17 @@ class NaiveBayes(GameEngine):
             / len(self.training_data),
         }  # Probabilities of each class given data of successful guesses
 
+    def update_class_probs(self):
+        if len(self.training_data) >= 1:
+            self.class_probs = {
+                "Higher": self.training_data["Class"].value_counts().get("Higher", 0)
+                / len(self.training_data),
+                "Lower": self.training_data["Class"].value_counts().get("Lower", 0)
+                / len(self.training_data),
+                "Equal": self.training_data["Class"].value_counts().get("Equal", 0)
+                / len(self.training_data),
+            }
+
     # To calculate conditional probability, we must consider P(Class|Card1, Card2, Card3) = P(Class) * P(Card1|Class) * P(Card2|Class) * P(Card3|Class)
     # Given a current hand, we will calculate the probability of each class and return an list of each probability, and the highest probability in a tuple
     def conditional_prob(self, current_hand):
@@ -187,7 +199,7 @@ class NaiveBayes(GameEngine):
 
         # Get count of each class in the Classes column of the training data i.e. 9, 5, 6 in a set of 20
         class_counts = [
-            class_counts.append(self.training_data["Class"].value_counts()[class_type])
+            self.training_data["Class"].value_counts()[class_type]
             for class_type in classes
         ]
 
@@ -208,7 +220,8 @@ class NaiveBayes(GameEngine):
                 matching_rows = len(
                     self.training_data[
                         (self.training_data.iloc[:, i] == card_value)
-                        and self.training_data["Class"] == class_type
+                        & self.training_data["Class"]
+                        == class_type
                     ]
                 )
                 temp_prob *= matching_rows / class_counts[classes.index(class_type)]
@@ -243,7 +256,8 @@ class NaiveBayes(GameEngine):
                 print("Exception occurred.")
                 raise InvalidClassError("Invalid class provided.")
 
-        self.training_data.append(new_row)
+        self.training_data.loc[len(self.training_data)] = new_row
+        self.update_class_probs()
 
 
 newGame = GameEngine()
