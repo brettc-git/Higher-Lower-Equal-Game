@@ -1,7 +1,4 @@
 import pydealer
-import tkinter as tk
-from tkinter import PhotoImage
-import math
 
 hl_ranks = {
     "values": {
