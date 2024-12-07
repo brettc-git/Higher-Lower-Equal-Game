@@ -62,7 +62,7 @@ class GameEngine:
     # Checks if the game should end
     def terminate_game(self):
         # If player score == 50 or cpu score == 50 end the game
-        return True if self.player.score == 50 or self.cpu.score == 50 else False
+        return self.player.score >= 50 or self.cpu.score >= 50
 
     # Deals card to player/cpu and updates score based on guess, returns how many points were won/lost
     def score_system(self, card_dealt, next_card, guess, player_type="player"):
@@ -84,29 +84,40 @@ class GameEngine:
                 if self.card_value(next_card) > self.card_value(card_dealt):
                     player.score += result
                     flag = True
+                elif self.card_value(next_card) == self.card_value(card_dealt):
+                    player.score -= 5
+                    if player.score - 5 < 0:
+                        player.score = 0
+                    flag = False # If the cards are actually equal, the player loses 5 points
+                    return (flag, 5)
                 else:
+                    player.score -= result
                     if player.score - result < 0:
                         player.score = 0
-                    player.score -= result
                     flag = False
             case "Lower":
                 if self.card_value(next_card) < self.card_value(card_dealt):
                     player.score += result
                     flag = True
+                elif self.card_value(next_card) == self.card_value(card_dealt):
+                    player.score -= 5
+                    flag = False
+                    return (flag, 5)
                 else:
+                    player.score -= result
                     if player.score - result < 0:
                         player.score = 0
-                    player.score -= result
                     flag = False
             case "Equal":
                 if self.card_value(next_card) == self.card_value(card_dealt):
                     player.score += 20
                     flag = True
                 else:
-                    if player.score - result < 0:
-                        player.score = 0
                     player.score -= 20
+                    if player.score - 20 < 0:
+                        player.score = 0
                     flag = False
+                    return (flag, 20)
             case _:
                 print("Exception occurred.")
                 raise InvalidClassError("Invalid class provided.")
@@ -123,7 +134,7 @@ class CPU(GameEngine):
         super().__init__()
 
     # Used to make a guess based on cards in CPU's hand using a different strategy
-    def guess_function(self, hand, deck):
+    def make_guess(self, hand, deck):
 
         best_card = None
         max_score = -np.inf
@@ -141,14 +152,16 @@ class CPU(GameEngine):
             return (best_card, "Higher")
         elif self.card_value(best_card) >= 10:
             return (best_card, "Lower")
-        elif 7 <= self.card_value(best_card) <= 9:
+        elif 5 <= self.card_value(best_card) <= 9:
             return (best_card, random.choice(["Higher", "Lower", "Equal"]))  # Random guess for middle values
         else:
-            raise OutOfRangeError("Card value out of range.")
+            if not (1 <= self.card_value(best_card) <= 13):
+                raise OutOfRangeError("Card value out of range.")
 
     # Calculate how good a card is for the given game state
     def card_potential(self, card_value, deck_size):
-
+        # Total number of possible card values (13 in a standard deck)
+        vals = len(self.hle_ranks["values"]) # Gets all values of cards possible
         vals = len(self.hle_ranks["values"]) # Gets all values of cards possible
 
         # Get how many cards could be lower or higher than the curent card
@@ -168,7 +181,10 @@ class CPU(GameEngine):
             score += 1
 
         score += max(higher_than, lower_than) # Add the maximum of the two values to the score
-
+        if deck_size > 0:
+            score *= (deck_size/52) # Multiply the score by the fraction of the deck left
+        else: # If the deck is empty, the score will be 0
+            score = 0
         score *= (deck_size/52) # Multiply the score by the fraction of the deck left
 
         return score
@@ -357,6 +373,8 @@ while newGame.terminate_game() == False:
         # Add new card to player's hand
         newGame.player.hand.add(newCard)
 
+        print(f"Player next card was: {newCard[0]}")
+
         # Decrement remaining cards
         remaining_cards -= 1
 
@@ -368,9 +386,9 @@ while newGame.terminate_game() == False:
 
         # CPU makes a guess which returns best card and guess (higher, lower, equal)
         # OUT OF RANGE ERROR
-        CPU_guess = cpu_guessing.guess_function(newGame.cpu.hand, newGame.sample_deck)
+        CPU_guess = cpu_guessing.make_guess(newGame.cpu.hand, newGame.sample_deck)
 
-        # Get CPU's result
+        # Get CPU's result; ERROR
         CPU_result = newGame.score_system(CPU_guess[0], CPU_Card[0], CPU_guess[1], "cpu")
 
         card_name = str(newGame.cpu.hand[0])
@@ -382,8 +400,12 @@ while newGame.terminate_game() == False:
         # Add new card to CPU's hand
         newGame.cpu.hand.add(CPU_Card)
 
+        print(f"CPU next card was: {CPU_Card[0]}")
+        print(f"CPU guessed: {CPU_guess[1]}")
+
         # Decrement remaining cards again for CPU
         remaining_cards -= 1
+
 
         # Print if player or CPU won, or both
         if player_result[0] == True:
@@ -399,3 +421,9 @@ while newGame.terminate_game() == False:
     except (ValueError, IndexError) as e:
         print(f"Error: {e}")
         continue
+
+# Winning statement
+if newGame.player.score >= 50:
+    print(f"Player won with {newGame.player.score} points!")
+else:
+    print(f"CPU won with {newGame.cpu.score} points!")

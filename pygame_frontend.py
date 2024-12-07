@@ -11,7 +11,7 @@ running = True
 system = pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_NO)
 directory = "assets/Card SVG files/"
 
-casino_bg = pygame.image.load("Higher-Lower-Equal-Game-main/assets/Casino_bg.jpg")
+casino_bg = pygame.image.load("assets/Casino_bg.jpg")
 casino_bg = pygame.transform.scale(casino_bg, (1280, 720))
 back_card = pygame.image.load("assets/Card SVG files/BACK_CARD.svg")
 back_card = pygame.transform.scale(back_card, (100, 150))
