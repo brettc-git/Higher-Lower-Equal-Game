@@ -11,6 +11,12 @@ class InvalidClassError(Exception):
 class OutOfRangeError(Exception):
     pass
 
+class Player:
+    def __init__(self):
+        # Each player will have a score and a hand of cards that are dealt in the main loop
+        self.score = 0
+        self.hand = pydealer.Stack()
+
 # TO-DO: Implement the system for how the comparisons will be made
 class GameEngine:
 
@@ -38,11 +44,10 @@ class GameEngine:
 
     def __init__(self):
 
-        self.player_score = 0
-        self.cpu_score = 0
+        self.player = Player()
+        self.cpu = Player()
         self.sample_deck = pydealer.Deck(ranks=self.hle_ranks, suits=self.hle_suits)
-        self.stack = pydealer.Stack()  # The stack of cards that will be accumulating cards if the game goes past using the 46 cards.
-        self.isPlayer = True  # True if it is the player's turn, False if it is the CPU's turn
+        self.discard_stack = pydealer.Stack()  # The stack of cards that will be accumulating cards if the game goes past using the 46 cards.
 
     # Returns the value of the card
     def card_value(self, card):
@@ -50,76 +55,67 @@ class GameEngine:
 
     # Refills the stack in case deck runs out of the 46 cards
     def refill_stack(self):
-        self.stack.shuffle()
+        self.sample_deck.add(self.discard_stack)
+        self.sample_deck.shuffle()
+        self.discard_stack.clear()
 
+    # Checks if the game should end
     def terminate_game(self):
-        # If player_score == 50 or cpu_score == 50 end the game
-        if self.player_score == 50 or self.cpu_score == 50:
-            return True
-        else:
-            return False
+        # If player score == 50 or cpu score == 50 end the game
+        return True if self.player.score == 50 or self.cpu.score == 50 else False
 
-    # Update the score of player or CPU, card dealt and next card of game passed to this function
-    # Also returns True if player or CPU wins, False if they lose, in addition to the points lost or gained
-    def score_system(self, card_dealt, next_card, guess):
-        # Compute the result of the guess, will be added or deducted
+    # Deals card to player/cpu and updates score based on guess, returns how many points were won/lost
+    def score_system(self, card_dealt, next_card, guess, player_type="player"):
+
+        # Our result will be the absolute difference between the two cards; which will be added or deducted from the player's score
         result = abs(self.card_value(next_card) - self.card_value(card_dealt))
+        flag = True # Default True if the player guesses correctly, False otherwise
 
-        # ERROR PART; Update so it accomodates either player or CPU since they are the same class
+        # Check current player
+        if player_type == "player":
+            player = self.player
+        elif player_type == "cpu":
+            player = self.cpu
+        else:
+            raise ValueError("Invalid player type.")
+
         match guess:
             case "Higher":
                 if self.card_value(next_card) > self.card_value(card_dealt):
-                    if self.isPlayer:
-                        self.player_score += result
-                        return (True, result)
-                    else:
-                        self.cpu_score += result
-                        return (True, result)
+                    player.score += result
+                    flag = True
                 else:
-                    if self.isPlayer:
-                        self.player_score -= result
-                        return (False, result)
-                    else:
-                        self.cpu_score -= result
-                        return (False, result)
+                    if player.score - result < 0:
+                        player.score = 0
+                    player.score -= result
+                    flag = False
             case "Lower":
                 if self.card_value(next_card) < self.card_value(card_dealt):
-                    if self.isPlayer:
-                        self.player_score += result
-                        return (True, result)
-                    else:
-                        self.cpu_score += result
-                        return (True, result)
+                    player.score += result
+                    flag = True
                 else:
-                    if self.isPlayer:
-                        self.player_score -= result
-                        return (False, result)
-                    else:
-                        self.cpu_score -= result
-                        return (False, result)
+                    if player.score - result < 0:
+                        player.score = 0
+                    player.score -= result
+                    flag = False
             case "Equal":
                 if self.card_value(next_card) == self.card_value(card_dealt):
-                    if self.isPlayer:
-                        self.player_score += 20
-                        return (True, 20)
-                    else:
-                        self.cpu_score += 20
-                        return (True, 20)
+                    player.score += 20
+                    flag = True
                 else:
-                    if self.isPlayer:
-                        self.player_score -= 20
-                        return (False, 20)
-                    else:
-                        self.cpu_score -= 20
-                        return (False, 20)
+                    if player.score - result < 0:
+                        player.score = 0
+                    player.score -= 20
+                    flag = False
             case _:
                 print("Exception occurred.")
                 raise InvalidClassError("Invalid class provided.")
 
-    def score_change(self, value, player_score):
-        if player_score - value < 0:
-            return 0
+        # Tuple has two values: flag (True/False) and result (points won/lost)
+        return (flag, result)
 
+
+# Class designed specifically for the CPU to make guesses in the game
 class CPU(GameEngine):
 
     # Our CPU will not be given expectimax or naive bayes capabilities, it will be making random guesses in the game based on separate logic
@@ -199,11 +195,7 @@ class Expectimax(GameEngine):
 
         # Expectimax calculated through going down the tree of all possible moves
         for card in hand:  # First level, go through each card in the hand
-            for guess in [
-                "Higher",
-                "Lower",
-                "Equal",
-            ]:  # Go through each option the player has
+            for guess in ["Higher", "Lower", "Equal"]:  # Go through each option the player has
                 for current_card in deck:  # Go through every card in the deck and find the maximum expected value
                     if (guess == "Higher"):  # Circumstance for every outcome, right or wrong guesses
                         utility = (abs(self.card_value(current_card) - self.card_value(card))
@@ -273,26 +265,16 @@ class NaiveBayes(GameEngine):
                 card_value = self.card_value(card)  # Gets card values from current_hand
 
                 # Conditional probability of each card and each class in the loop
-                matching_rows = len(
-                    self.training_data[
-                        (self.training_data.iloc[:, i] == card_value)
-                        & self.training_data["Class"]
-                        == class_type
-                    ]
-                )
+                matching_rows = len(self.training_data[(self.training_data.iloc[:, i] == card_value) & (self.training_data["Class"] == class_type)])
 
                 # Since we have probabilities that will equate to zero, we need to handle this with Laplace smoothing where alpha = 1. This is to avoid zero probabilities.
 
-                temp_prob *= (matching_rows + 1) / (
-                    class_counts[classes.index(class_type)] + 3
-                )
+                temp_prob *= (matching_rows + 1) / (class_counts[classes.index(class_type)] + 3)
 
             # Append conditional probability of each class to the probabilities list
             probabilities.append(temp_prob)
 
-        max_class = classes[
-            probabilities.index(max(probabilities))
-        ]  # Get the class with the highest probability
+        max_class = classes[probabilities.index(max(probabilities))]  # Get the class with the highest probability
         # Return all the probabilities and the class with the highest probability and its probability in a tuple
         return (probabilities, (max(probabilities), max_class))
 
@@ -323,10 +305,14 @@ class NaiveBayes(GameEngine):
 
 newGame = GameEngine()
 newGame.sample_deck.shuffle()
-players_hand = newGame.sample_deck.deal(3)
-cpu_hand = newGame.sample_deck.deal(3)
+
+newGame.player.hand = newGame.sample_deck.deal(3)
+
+newGame.cpu.hand = newGame.sample_deck.deal(3)
+
 remaining_cards = newGame.sample_deck.size
-cpu = CPU()
+
+cpu_guessing = CPU()
 
 # Test game loop; will be used in frontend, do not use this loop for final product
 while newGame.terminate_game() == False:
@@ -336,12 +322,13 @@ while newGame.terminate_game() == False:
         newGame.refill_stack()
 
     try:
-        print("Player Score: ", newGame.player_score)
-        print(players_hand)
+        print("Player Score: ", newGame.player.score)
+        print(newGame.player.hand)
 
-        print("CPU Score: ", newGame.cpu_score)
-        print(cpu_hand)
+        print("CPU Score: ", newGame.cpu.score)
+        print(newGame.cpu.hand)
 
+        # Refill the stack if it runs out of cards
         if remaining_cards <= 0:
             newGame.refill_stack()
 
@@ -359,15 +346,16 @@ while newGame.terminate_game() == False:
         newCard = newGame.sample_deck.deal(1)
 
         # Compare with next card in deck; update score
-        player_result = newGame.score_system(players_hand[card_choice], newCard[0], current_guess)
+        player_result = newGame.score_system(newGame.player.hand[card_choice], newCard[0], current_guess)
 
-        card_name = str(players_hand[card_choice])
-        # ERROR PART
-        discard = players_hand.get(card_name)
-        newGame.stack.add(discard)
+        # Get specific card name to discard
+        card_name = str(newGame.player.hand[card_choice])
+
+        discard = newGame.player.hand.get(card_name)
+        newGame.discard_stack.add(discard)
 
         # Add new card to player's hand
-        players_hand.add(newCard)
+        newGame.player.hand.add(newCard)
 
         # Decrement remaining cards
         remaining_cards -= 1
@@ -380,18 +368,19 @@ while newGame.terminate_game() == False:
 
         # CPU makes a guess which returns best card and guess (higher, lower, equal)
         # OUT OF RANGE ERROR
-        CPU_guess = cpu.guess_function(cpu_hand, newGame.sample_deck)
+        CPU_guess = cpu_guessing.guess_function(newGame.cpu.hand, newGame.sample_deck)
 
+        # Get CPU's result
+        CPU_result = newGame.score_system(CPU_guess[0], CPU_Card[0], CPU_guess[1], "cpu")
 
-        CPU_result = newGame.score_system(CPU_guess[0], CPU_Card[0], CPU_guess[1])
+        card_name = str(newGame.cpu.hand[0])
 
-        card_name = str(cpu_hand[0])
-
-        discard = cpu_hand.get(card_name)
-        newGame.stack.add(discard)
+        # Discard CPU's card and put it in stack
+        discard = newGame.cpu.hand.get(card_name)
+        newGame.discard_stack.add(discard)
 
         # Add new card to CPU's hand
-        cpu_hand.add(CPU_Card)
+        newGame.cpu.hand.add(CPU_Card)
 
         # Decrement remaining cards again for CPU
         remaining_cards -= 1
