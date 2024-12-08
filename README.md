@@ -3,7 +3,7 @@
 Group Members
 - Brett Chiu
 - Florentino Becerra
-- Jesus Lozano
+- Jesus Lozano-Vega
   
 ## Assets Used
 - Pydealer library
