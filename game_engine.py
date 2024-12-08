@@ -207,65 +207,70 @@ class Expectimax(GameEngine):
         best_move = None
 
         # The fraction to compute each expected value
-        probability = 1 / deck.size
+        probability = 1.0 / deck.size if deck.size > 0 else 0 # Probability of each card in the deck if non-empty
 
         # Expectimax calculated through going down the tree of all possible moves
-        for card in hand:  # First level, go through each card in the hand
-            for guess in ["Higher", "Lower", "Equal"]:  # Go through each option the player has
-                for current_card in deck:  # Go through every card in the deck and find the maximum expected value
-                    if (guess == "Higher"):  # Circumstance for every outcome, right or wrong guesses
-                        utility = (abs(self.card_value(current_card) - self.card_value(card))
-                            if self.card_value(current_card) > self.card_value(card)
-                            else -abs(self.card_value(current_card) - self.card_value(card)))
-                        # The utility is the absolute difference between the two cards if the current card is higher than the card in hand, otherwise it is the negative of the absolute difference
-                    elif guess == "Lower":
-                        utility = (
-                            abs(self.card_value(current_card) - self.card_value(card))
-                            if self.card_value(current_card) < self.card_value(card)
-                            else -abs(
-                                self.card_value(current_card) - self.card_value(card)
-                            )
-                        )
-                        # Utility is same as above, but in the case that the current card is lower than the card in hand
-                    else:  # guess == "Equal"
-                        utility = 20 if self.card_value(current_card) == self.card_value(card) else -20  # 20 total points will be added if the card is equal to current card in hand, the same amount is deducted otherwise
-
-                    self.expected_value = probability * utility  # Expected value will
 
             # Check if new expected value is better than the current best expected value
+        for card in hand:
+            for guess in ["Higher", "Lower", "Equal"]:
+                current_EV = 0
+
+                for next_card in deck:
+                    # Get the utility for each card which represents a terminal node
+                    utility = self.utility_calculation(card, next_card, guess)
+                    current_EV += probability * utility
+
+                if current_EV > maxEV:
+                    maxEV = current_EV
+                    best_move = (card, guess)
+
             if self.expected_value > maxEV:
                 maxEV = self.expected_value
                 best_move = (card, guess)
 
         return maxEV, best_move
 
+    def utility_calculation(self, card, next_card, guess):
+        diff = abs(self.card_value(next_card) - self.card_value(card))
+
+        if guess == "Higher":
+            return diff if self.card_value(next_card) > self.card_value(card) else -diff
+        elif guess == "Lower":
+            return diff if self.card_value(next_card) < self.card_value(card) else -diff
+        else:  # guess == "Equal"
+            return 20 if self.card_value(next_card) == self.card_value(card) else -20
+
 
 class NaiveBayes(GameEngine):
     def __init__(self):
         super().__init__()  # Go back to later
+        # Our table will use pandas and build upon the data from the choices that were made by the player
         self.training_data = pd.DataFrame(columns=["Card1", "Card2", "Card3", "Class"])
+        # All initially equal probabilities of each class
         self.class_probs = {
-            "Higher": self.training_data["Class"].value_counts()["Higher"] / len(self.training_data),
-            "Lower": self.training_data["Class"].value_counts()["Lower"] / len(self.training_data),
-            "Equal": self.training_data["Class"].value_counts()["Equal"] / len(self.training_data),
+            "Higher": 1/3,
+            "Lower": 1/3,
+            "Equal": 1/3,
         }  # Probabilities of each class given data of successful guesses
 
     def update_class_probs(self):
         if len(self.training_data) >= 1:
+            total = len(self.training_data)
             self.class_probs = {
-                "Higher": self.training_data["Class"].value_counts().get("Higher", 0) / len(self.training_data),
-                "Lower": self.training_data["Class"].value_counts().get("Lower", 0) / len(self.training_data),
-                "Equal": self.training_data["Class"].value_counts().get("Equal", 0) / len(self.training_data),
+                "Higher": (self.training_data["Class"].value_counts().get("Higher", 0) + 1) / (total+3),
+                "Lower": (self.training_data["Class"].value_counts().get("Lower", 0) + 1) / (total+3),
+                "Equal": (self.training_data["Class"].value_counts().get("Equal", 0) + 1) / (total+3),
             }
 
     # To calculate conditional probability, we must consider P(Class|Card1, Card2, Card3) = P(Class) * P(Card1|Class) * P(Card2|Class) * P(Card3|Class)
     # Given a current hand, we will calculate the probability of each class and return an list of each probability, and the highest probability in a tuple
     def conditional_prob(self, current_hand):
 
-        classes = list(self.class_probs.keys())  # "higher", "Lower", "Equal" as a lis ["Higher", "Lower", "Equal"]
+        classes = list(self.class_probs.keys())  # "higher", "Lower", "Equal" as a list ["Higher", "Lower", "Equal"]
 
         # Get count of each class in the Classes column of the training data i.e. 9, 5, 6 in a set of 20
-        class_counts = [ self.training_data["Class"].value_counts()[class_type] for class_type in classes]
+        class_counts = { c: len(self.training_data[self.training_data["Class"] == c]) for c in classes }
 
         # In the order: higher, lower, equal
         probabilities = []
@@ -281,14 +286,16 @@ class NaiveBayes(GameEngine):
                 card_value = self.card_value(card)  # Gets card values from current_hand
 
                 # Conditional probability of each card and each class in the loop
-                matching_rows = len(self.training_data[(self.training_data.iloc[:, i] == card_value) & (self.training_data["Class"] == class_type)])
+                matching_rows = len(self.training_data[(self.training_data["Card" + str(i+1)] == card_value) & (self.training_data["Class"] == class_type)])
 
                 # Since we have probabilities that will equate to zero, we need to handle this with Laplace smoothing where alpha = 1. This is to avoid zero probabilities.
 
-                temp_prob *= (matching_rows + 1) / (class_counts[classes.index(class_type)] + 3)
+            # alpha = 1, number of unique card values = 13 is added to the denominator
+                temp_prob *= (matching_rows + 1) / (class_counts[class_type] + 13)
 
             # Append conditional probability of each class to the probabilities list
             probabilities.append(temp_prob)
+
 
         max_class = classes[probabilities.index(max(probabilities))]  # Get the class with the highest probability
         # Return all the probabilities and the class with the highest probability and its probability in a tuple
@@ -298,132 +305,21 @@ class NaiveBayes(GameEngine):
     def update_data(self, current_hand, outcome):
         new_row = []
 
-        for i in current_hand:
-            new_row.append(self.card_value(i))
+        if outcome not in ["Higher", "Lower", "Equal"]:
+            raise InvalidClassError("Invalid class provided.")
 
-        match outcome:
-            case "Higher":
-                new_row.append("Higher")
-                # attach class higher to training data column 4
-            case "Lower":
-                new_row.append("Lower")
-                # attach class lower to training data column 4
-            case "Equal":
-                new_row.append("Equal")
-                # attach class equal to training data column 4
-            case _:
-                print("Exception occurred.")
-                raise InvalidClassError("Invalid class provided.")
+        new_row = [self.card_value(card) for card in current_hand]
+        new_row.append(outcome)
 
         self.training_data.loc[len(self.training_data)] = new_row
+
         self.update_class_probs()
 
+    # convenience function to predict the best guess
+    def prediction(self, current_hand):
+        probabilities, (max_prob, best_class) = self.conditional_prob(current_hand)
+        classes = ["Higher", "Lower", "Equal"]
+        probability_breakdown = dict(zip(classes, probabilities))
 
-newGame = GameEngine()
-newGame.sample_deck.shuffle()
+        return { "Class Probabilities": probability_breakdown, "Best Probability": max_prob, "Best Class": best_class }
 
-newGame.player.hand = newGame.sample_deck.deal(3)
-
-newGame.cpu.hand = newGame.sample_deck.deal(3)
-
-remaining_cards = newGame.sample_deck.size
-
-cpu_guessing = CPU()
-
-# Test game loop; will be used in frontend, do not use this loop for final product
-while newGame.terminate_game() == False:
-
-    # Test if deck is empty:
-    if newGame.sample_deck.size == 0:
-        newGame.refill_stack()
-
-    try:
-        print("Player Score: ", newGame.player.score)
-        print(newGame.player.hand)
-
-        print("CPU Score: ", newGame.cpu.score)
-        print(newGame.cpu.hand)
-
-        # Refill the stack if it runs out of cards
-        if remaining_cards <= 0:
-            newGame.refill_stack()
-
-        print("Remaining cards:", remaining_cards)
-
-        card_choice = int(input("Which card would you like to bet (0-2)? "))
-        if card_choice < 0 or card_choice > 2:
-            raise ValueError("Card choice out of range.")
-
-        current_guess = input("Card is higher, lower or equal? ").capitalize()
-        if current_guess not in ["Higher", "Lower", "Equal"]:
-            raise ValueError("Invalid guess.")
-
-        # Get a new card
-        newCard = newGame.sample_deck.deal(1)
-
-        # Compare with next card in deck; update score
-        player_result = newGame.score_system(newGame.player.hand[card_choice], newCard[0], current_guess)
-
-        # Get specific card name to discard
-        card_name = str(newGame.player.hand[card_choice])
-
-        discard = newGame.player.hand.get(card_name)
-        newGame.discard_stack.add(discard)
-
-        # Add new card to player's hand
-        newGame.player.hand.add(newCard)
-
-        print(f"Player next card was: {newCard[0]}")
-
-        # Decrement remaining cards
-        remaining_cards -= 1
-
-        # CPU goes through same process
-        print("CPU turn")
-
-        # Get new card for CPU
-        CPU_Card = newGame.sample_deck.deal(1)
-
-        # CPU makes a guess which returns best card and guess (higher, lower, equal)
-        # OUT OF RANGE ERROR
-        CPU_guess = cpu_guessing.make_guess(newGame.cpu.hand, newGame.sample_deck)
-
-        # Get CPU's result; ERROR
-        CPU_result = newGame.score_system(CPU_guess[0], CPU_Card[0], CPU_guess[1], "cpu")
-
-        card_name = str(newGame.cpu.hand[0])
-
-        # Discard CPU's card and put it in stack
-        discard = newGame.cpu.hand.get(card_name)
-        newGame.discard_stack.add(discard)
-
-        # Add new card to CPU's hand
-        newGame.cpu.hand.add(CPU_Card)
-
-        print(f"CPU next card was: {CPU_Card[0]}")
-        print(f"CPU guessed: {CPU_guess[1]}")
-
-        # Decrement remaining cards again for CPU
-        remaining_cards -= 1
-
-
-        # Print if player or CPU won, or both
-        if player_result[0] == True:
-            print(f"Player won {player_result[1]} points.")
-        else:
-            print(f"Player lost {player_result[1]} points.")
-
-        if CPU_result[0] == True:
-            print(f"CPU won {CPU_result[1]} points.")
-        else:
-            print(f"CPU lost {CPU_result[1]} points.")
-
-    except (ValueError, IndexError) as e:
-        print(f"Error: {e}")
-        continue
-
-# Winning statement
-if newGame.player.score >= 50:
-    print(f"Player won with {newGame.player.score} points!")
-else:
-    print(f"CPU won with {newGame.cpu.score} points!")

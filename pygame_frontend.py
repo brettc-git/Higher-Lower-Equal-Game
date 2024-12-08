@@ -1,18 +1,23 @@
 import pygame
 import os
 import random
+import game_engine as ge # Game Engine Functions
 
 pygame.init()
 pygame.display.set_caption("Higher-Lower-Equal Card Game")
 pygame.mouse.set_visible(True)
 screen = pygame.display.set_mode((1280, 720), pygame.RESIZABLE)
 clock = pygame.time.Clock()
-running = True
+
+# Cursor
 system = pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_NO)
 directory = "assets/Card SVG files/"
 
+# Load bg image and resize
 casino_bg = pygame.image.load("assets/Casino_bg.jpg")
 casino_bg = pygame.transform.scale(casino_bg, (1280, 720))
+
+# Load back card and resize
 back_card = pygame.image.load("assets/Card SVG files/BACK_CARD.svg")
 back_card = pygame.transform.scale(back_card, (100, 150))
 
@@ -54,7 +59,8 @@ else:
     card_keys = []
 
 # Main
-while running:
+while ge.terminate_game() == False:
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False

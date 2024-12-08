@@ -1,78 +1,105 @@
+# Import your existing classes
+from game_engine import GameEngine, Expectimax
 import pydealer
+def test_expectimax():
+    # Initialize test environment
+    expectimax = Expectimax()
+    test_deck = pydealer.Deck(ranks=GameEngine.hle_ranks, suits=GameEngine.hle_suits)
+    test_deck.shuffle()
 
-hl_ranks = {
-    "values": {
-        "Ace": 1,
-        "2": 2,
-        "3": 3,
-        "4": 4,
-        "5": 5,
-        "6": 6,
-        "7": 7,
-        "8": 8,
-        "9": 9,
-        "10": 10,
-        "Jack": 11,
-        "Queen": 12,
-        "King": 13,
-    },
-    "suits": ["Spades", "Hearts", "Clubs", "Diamonds"],
-}
+    def run_single_test(hand, deck, description):
+        print(f"\nTest Case: {description}")
+        print(f"Hand: {hand}")
+        print(f"Deck size: {deck.size}")
 
-
-def highlow_value(card):
-    return hl_ranks["values"][card.value]
-
-
-def simple_prob(your_card, deck):
-
-    l = []
-    h = []
-    eq = []
-
-    for i in deck:
-        # Cards lower than your current card
-        if highlow_value(your_card) > highlow_value(i):
-            l.append(i)
-        # Cards higher than your current card
-        elif highlow_value(your_card) < highlow_value(i):
-            h.append(i)
-        # Cards equal than your current card
-        elif highlow_value(your_card) == highlow_value(i):
-            eq.append(i)
+        expected_value, best_move = expectimax.expectimax(hand, deck)
+        if best_move:
+            chosen_card, chosen_move = best_move
+            print(f"Expected Value: {expected_value:.2f}")
+            print(f"Chosen Card: {chosen_card}")
+            print(f"Recommended Move: {chosen_move}")
+            print(f"Card Value: {expectimax.card_value(chosen_card)}")
         else:
-            print("Exception occurred.")
+            print("No move found!")
+        return expected_value, best_move
 
-    lower_prob = round(len(l) / deck.size, 4)
-    higher_prob = round(len(h) / deck.size, 4)
-    equal_prob = round(len(eq) / deck.size, 4)
-    return [lower_prob, higher_prob, equal_prob]
+    # Test Case 1: Extreme Values Test
+    print("\n=== Testing Extreme Values ===")
+    # Create a hand with Ace (1) and King (13)
+    extreme_hand = pydealer.Stack()
+    extreme_hand.add([
+        pydealer.Card("Ace", "Spades"),    # Value 1
+        pydealer.Card("King", "Hearts"),    # Value 13
+        pydealer.Card("7", "Diamonds")      # Value 7
+    ])
+    ev1, move1 = run_single_test(extreme_hand, test_deck, "Extreme Values (Ace, King, 7)")
 
+    # Test Case 2: Middle Values Test
+    print("\n=== Testing Middle Values ===")
+    middle_hand = pydealer.Stack()
+    middle_hand.add([
+        pydealer.Card("6", "Spades"),    # Value 6
+        pydealer.Card("7", "Hearts"),    # Value 7
+        pydealer.Card("8", "Diamonds")   # Value 8
+    ])
+    ev2, move2 = run_single_test(middle_hand, test_deck, "Middle Values (6, 7, 8)")
 
-sample_deck = pydealer.Deck()
+    # Test Case 3: Equal Values Test
+    print("\n=== Testing Equal Values ===")
+    equal_hand = pydealer.Stack()
+    equal_hand.add([
+        pydealer.Card("Queen", "Spades"),    # Value 12
+        pydealer.Card("Queen", "Hearts"),    # Value 12
+        pydealer.Card("Queen", "Diamonds")   # Value 12
+    ])
+    ev3, move3 = run_single_test(equal_hand, test_deck, "Equal Values (Queen, Queen, Queen)")
 
-print("Shuffling deck...")
-sample_deck.shuffle()
+    # Validation checks
+    print("\n=== Validation Results ===")
 
-# Both hands are visible to players
-players_hand = sample_deck.deal(2)
-cpu_hand = sample_deck.deal(2)
+    # Check if extreme values produce higher expected values
+    print("1. Extreme Values Check:", end=" ")
+    if abs(ev1) > abs(ev2):
+        print("✓ (Extreme values produce higher expected values)")
+    else:
+        print("✗ (Expected extreme values to produce higher expected values)")
 
-print("Player: ")
-print(players_hand)
+    # Check if moves are valid
+    def validate_move(move, description):
+        print(f"2. {description}:", end=" ")
+        if move and move[1] in ["Higher", "Lower", "Equal"]:
+            print("✓ (Valid move suggested)")
+            return True
+        else:
+            print("✗ (Invalid or no move suggested)")
+            return False
 
-print("CPU: ")
-print(cpu_hand)
+    validate_move(move1, "Extreme Values Move")
+    validate_move(move2, "Middle Values Move")
+    validate_move(move3, "Equal Values Move")
 
-stats1 = simple_prob(players_hand[0], sample_deck)
+    # Check if the algorithm suggests logical moves
+    def check_move_logic(move, description):
+        if not move:
+            return
 
-print("Test probability:\n")
-print("Probability of a lower card for your first one: ", stats1[0])
-print("Probability of a higher card for you first one: ", stats1[1])
-print("Probability of an equal value card for your first one: ", stats1[2])
+        card, guess = move
+        card_value = expectimax.card_value(card)
+        print(f"3. {description} Logic Check:", end=" ")
 
-stats2 = simple_prob(players_hand[1], sample_deck)
+        if card_value <= 4 and guess == "Higher":
+            print("✓ (Correctly suggests Higher for low values)")
+        elif card_value >= 10 and guess == "Lower":
+            print("✓ (Correctly suggests Lower for high values)")
+        elif 5 <= card_value <= 9:
+            print("✓ (Middle range value, any guess can be optimal)")
+        else:
+            print("✗ (Unexpected move suggestion)")
 
-print("Probability of a lower card for your second one: ", stats2[0])
-print("Probability of a higher card for you second one: ", stats2[1])
-print("Probability of an equal value card for your second one: ", stats2[2])
+    check_move_logic(move1, "Extreme Values")
+    check_move_logic(move2, "Middle Values")
+    check_move_logic(move3, "Equal Values")
+
+# Run the tests
+if __name__ == "__main__":
+    test_expectimax()
