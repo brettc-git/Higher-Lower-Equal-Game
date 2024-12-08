@@ -120,40 +120,40 @@ while running:
         card_image = pygame.transform.scale(card_images[bottom_row[i]], (100, 150))
         screen.blit(card_image, cards)
 
-        # Player
-        player_text = title_font.render("Player", True, (255, 255, 255))
-        player_text_rect = player_text.get_rect(center=(860, 530))
-        screen.blit(player_text, player_text_rect)
+    # Player
+    player_text = title_font.render("Player", True, (255, 255, 255))
+    player_text_rect = player_text.get_rect(center=(860, 530))
+    screen.blit(player_text, player_text_rect)
 
-        # CPU
-        cpu_text = title_font.render("CPU", True, (255, 255, 255))
-        cpu_text_rect = cpu_text.get_rect(center=(620, 50))
-        screen.blit(cpu_text, cpu_text_rect)
+    # CPU
+    cpu_text = title_font.render("CPU", True, (255, 255, 255))
+    cpu_text_rect = cpu_text.get_rect(center=(620, 50))
+    screen.blit(cpu_text, cpu_text_rect)
 
-        # Player score
-        player_score_text = score_font.render(f" {player_score}", True, (255, 255, 255))
-        player_score_rect = player_score_text.get_rect(center=(860, 580))
-        screen.blit(player_score_text, player_score_rect)
+    # Player score
+    player_score_text = score_font.render(f" {player_score}", True, (255, 255, 255))
+    player_score_rect = player_score_text.get_rect(center=(860, 580))
+    screen.blit(player_score_text, player_score_rect)
 
-        # CPU score
-        cpu_score_text = score_font.render(f" {cpu_score}", True, (255, 255, 255))
-        cpu_score_rect = cpu_score_text.get_rect(center=(620, 100))
-        screen.blit(cpu_score_text, cpu_score_rect)
+    # CPU score
+    cpu_score_text = score_font.render(f" {cpu_score}", True, (255, 255, 255))
+    cpu_score_rect = cpu_score_text.get_rect(center=(620, 100))
+    screen.blit(cpu_score_text, cpu_score_rect)
 
 
-        def draw_buttons():
-            for i, (text, switch) in enumerate(zip(button_texts, button_positions)):
-                button_surface = pygame.Surface((button_width, button_height))
-                button_surface.fill(button_color)
+    def draw_buttons():
+        for i, (text, switch) in enumerate(zip(button_texts, button_positions)):
+            button_surface = pygame.Surface((button_width, button_height))
+            button_surface.fill(button_color)
 
-                text_surface = button.render(text, True, text_color)
-                text_box = text_surface.get_rect(center=(button_width // 2, button_height // 2))
+            text_surface = button.render(text, True, text_color)
+            text_box = text_surface.get_rect(center=(button_width // 2, button_height // 2))
 
-                button_surface.blit(text_surface, text_box)
+            button_surface.blit(text_surface, text_box)
 
-                screen.blit(button_surface, switch)
+            screen.blit(button_surface, switch)
 
-        draw_buttons()
+    draw_buttons()
 
     pygame.display.update()
 
